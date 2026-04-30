@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <title>Kaart test</title>
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+
+  <!-- Leaflet JS -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  ></script>
+
+  <style>    
+  body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont,
+               "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+    #map { height: 100vh; }
+    
+#controls {
+  padding: 10px;
+  font-weight: 600; /* of bold */
+  background: #f2f2f2;
+}
+#controls select {
+  margin-left: 6px;
+}
+#legend {
+  background: #f2f2f2;
+  padding: 10px;
+  font-size: 0.9em;
+}
+
+#legend ul {
+  list-style: none;
+  padding-left: 0;
+}
+
+#legend li {
+  margin: 4px 0;
+}
+
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+.fastfood { background: red; }
+.bakery { background: blueviolet; border: 1px solid #aaa; }
+.convenience { background: greenyellow; }
+
+#layout {
+  display: flex;
+  height: calc(100vh - 80px); /* ruimte voor controls boven */
+}
+
+#mapContainer {
+  flex: 3;
+}
+
+#map {
+  height: 100%;
+}
+
+#sidePanel {
+  flex: 1;
+  background: #f2f2f2;
+  padding: 10px;
+  border-left: 1px solid #ccc;
+  overflow-y: auto;
+}
+
+#sidePanel > div {
+  margin-bottom: 20px;
+}
+
+#controls,
+#sidePanel {
+  font-size: 15px;
+}
+
+#sidePanel strong {
+  font-weight: 600;
+}
+
+  </style>
+</head>
+
+<body>
+
+<div id="controls">
+  School:
+  <select id="schoolSelect"></select>
+  <br><br>
+  Straal:
+  <select id="radiusSelect">
+  <option value="100">100 m</option>
+  <option value="250">250 m</option>
+  <option value="500" selected>500 m</option>
+  <option value="1000">1000 m</option>
+</select>
+
+</div>
+
+<!-- NIEUWE LAYOUT -->
+<div id="layout">
+
+  <!-- LINKERKANT: kaart -->
+  <div id="mapContainer">
+    <div id="map"></div>
+  </div>
+
+  <!-- RECHTERKANT: legenda + filter -->
+  <div id="sidePanel">
+
+    <div id="activeResult">
+      <p>
+        <strong>Actieve straal:</strong>
+        <span id="activeRadius">500</span> meter
+      </p>
+      <p>
+        <strong>Aantal eetgelegenheden binnen deze straal:</strong>
+        <span id="countActive">0</span>
+      </p>
+    </div>
+
+    <div id="legend">
+      <strong>Legenda eetgelegenheden</strong>
+      <ul>
+        <li><span class="dot fastfood"></span> Fastfood / frituur</li>
+        <li><span class="dot bakery"></span> Bakker</li>
+        <li><span class="dot convenience"></span> Nachtwinkel</li>
+      </ul>
+    </div>
+
+    <div id="foodFilter">
+      <strong>Eetgelegenheden</strong><br>
+      <select id="foodTypeSelect">
+        <option value="all">Alle types samen</option>
+        <option value="fast_food">Fastfood</option>
+        <option value="bakery">Bakker</option>
+        <option value="convenience">Nachtwinkel</option>
+      </select>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ======= DOM ELEMENTEN ======= */
+const schoolSelect = document.getElementById("schoolSelect");
+const radiusSelect = document.getElementById("radiusSelect");
+const foodTypeSelect = document.getElementById("foodTypeSelect");
+const activeRadiusSpan = document.getElementById("activeRadius");
+const countActiveSpan = document.getElementById("countActive");
+
+/* ======= SCHOLEN ======= */
+const schools = [
+  { name: "Busleyden Atheneum – Campus Caputsteen", lat: 51.0346377, lon: 4.4867669 },
+  { name: "Sint-Romboutscollege", lat: 51.02959, lon: 4.4814948 },
+  { name: "Ursulinen Mechelen", lat: 51.0228231, lon: 4.4731103 },
+  { name: "PTS Campus Mechelen", lat: 51.044405, lon: 4.4661776 },
+  { name: "Technische Scholen Mechelen", lat: 51.0292818, lon: 4.474929 },
+
+  { name: "Sint-Norbertusinstituut", lat: 51.2170404, lon: 4.4045397 },
+  { name: "Sint-Michielscollege Brasschaat", lat: 51.2722875, lon: 4.4560209 },
+  { name: "Onze-Lieve-Vrouw Instituut Pulhof", lat: 51.1818832, lon: 4.4277689 },
+  { name: "GO! Koninklijk Atheneum Antwerpen", lat: 51.2199106, lon: 4.4155348 },
+  { name: "AVANT – Campus Jacob Jordaens", lat: 51.2090956, lon: 4.4144182 },
+
+  { name: "Heilig Graf Secundair Onderwijs (Turnhout)", lat: 51.3176566, lon: 4.9452726 },
+  { name: "BuSO V.I.B.O. Het Kasteelpark (Oud-Turnhout)", lat: 51.3123627, lon: 4.9958448 },
+  { name: "GO! Talentenschool Turnhout – Campus Boomgaard", lat: 51.3235252, lon: 4.9586874 },
+  { name: "HT2O Turnhout", lat: 51.3147101, lon: 4.9200954 },
+  { name: "Sint-Victor Turnhout", lat: 51.3254381, lon: 4.9405414 }
+];
+
+/* ======= KAART ======= */
+const map = L.map("map").setView([51.0293, 4.4749], 14);
+
+L.tileLayer(
+  "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+  { attribution: "© OpenStreetMap & CARTO" }
+).addTo(map);
+
+const foodLayer = L.layerGroup().addTo(map);
+let schoolMarker = null;
+let ringLayers = [];
+
+/* ======= SCHOOL SELECT ======= */
+schools.forEach((school, i) => {
+  const opt = document.createElement("option");
+  opt.value = i;
+  opt.textContent = school.name;
+  schoolSelect.appendChild(opt);
+});
+
+/* ======= HOOFDFUNCTIE ======= */
+function updateForSchool(school) {
+  foodLayer.clearLayers();
+  ringLayers.forEach(r => map.removeLayer(r));
+  ringLayers = [];
+
+  const center = [school.lat, school.lon];
+  const selectedRadius = Number(radiusSelect.value);
+
+  activeRadiusSpan.textContent = selectedRadius;
+
+  map.setView(center, 14);
+
+  if (schoolMarker) map.removeLayer(schoolMarker);
+  schoolMarker = L.marker(center).addTo(map);
+
+  /* RINGEN */
+const radiiConfig = {
+  100: "#2c7bb6",   // blauw
+  250: "#abd9e9",   // lichtblauw
+  500: "#fdae61",   // oranje
+  1000: "#d7191c"   // rood
+};
+
+[100, 250, 500, 1000].forEach(r => {
+  ringLayers.push(
+    L.circle(center, {
+      radius: r,
+      color: radiiConfig[r],
+      fill: false,
+      weight: r === selectedRadius ? 3 : 1,
+      opacity: r === selectedRadius ? 1 : 0.3
+    }).addTo(map)
+  );
+});
+
+  loadEetgelegenheden(center, selectedRadius);
+}
+
+/* ======= EETGELEGENHEDEN ======= */
+function loadEetgelegenheden(center, maxRadius) {
+  const typeFilter = foodTypeSelect.value;
+
+  const query = `
+    [out:json];
+    (
+      node(around:${maxRadius},${center[0]},${center[1]})["amenity"="fast_food"];
+      node(around:${maxRadius},${center[0]},${center[1]})["shop"="bakery"];
+      node(around:${maxRadius},${center[0]},${center[1]})["shop"="convenience"];
+    );
+    out;
+  `;
+
+  fetch("https://overpass-api.de/api/interpreter", {
+    method: "POST",
+    body: query
+  })
+  .then(r => r.json())
+  .then(data => {
+    data.elements.forEach(el => {
+      const lat = el.lat;
+      const lon = el.lon;
+      const type =
+        el.tags.amenity === "fast_food" ? "fast_food" :
+        el.tags.shop === "bakery" ? "bakery" :
+        el.tags.shop === "convenience" ? "convenience" :
+        null;
+
+      if (!type) return;
+      if (typeFilter !== "all" && typeFilter !== type) return;
+
+      const color =
+        type === "fast_food" ? "red" :
+        type === "bakery" ? "blueviolet" :
+        "greenyellow";
+
+      L.circleMarker([lat, lon], {
+        radius: 4,
+        color: color,
+        fillOpacity: 0.8
+      }).addTo(foodLayer);
+    });
+
+    countActiveSpan.textContent = foodLayer.getLayers().length;
+  });
+}
+
+/* ======= EVENTS ======= */
+schoolSelect.addEventListener("change", () =>
+  updateForSchool(schools[schoolSelect.value])
+);
+
+radiusSelect.addEventListener("change", () =>
+  updateForSchool(schools[schoolSelect.value])
+);
+
+foodTypeSelect.addEventListener("change", () =>
+  updateForSchool(schools[schoolSelect.value])
+);
+
+/* ======= INIT ======= */
+updateForSchool(schools[0]);
+</script>
