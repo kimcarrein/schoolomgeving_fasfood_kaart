@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
   <meta charset="UTF-8">
-  <title>Kaart test</title>
+  <title>fastfood en scholen</title>
 
   <!-- Leaflet CSS -->
   <link
@@ -38,6 +38,15 @@
   font-size: 0.95rem;
   color: #555;
 }
+
+#disclaimer {
+  padding: 8px 16px;
+  background: #fff8ee;
+  border-bottom: 1px solid #e6d5b8;
+  font-size: 0.8rem;
+  color: #5a4a2a;
+}
+
 #map { height: 100vh; }
     
 #controls {
@@ -117,6 +126,13 @@
   <h1>Kan jij de verleiding van fastfood weerstaan?</h1>
   <p>Onderzoek de eetomgeving rond jouw school</p>
 </header>
+
+<div id="disclaimer">
+  <strong>Info</strong><br>
+  Deze kaart gebruikt open, echte data.<br>
+  Niet alle eetgelegenheden zijn correct geregistreerd.<br>
+  Wat ontbreekt, is ook een onderzoeksresultaat.
+</div>
 
 <div id="controls">
   School:
@@ -299,7 +315,8 @@ function loadEetgelegenheden(center, maxRadius) {
       const color =
         type === "fast_food" ? "red" :
         type === "bakery" ? "blueviolet" :
-        "greenyellow";
+        type === "convenience" ? "greenyellow":
+        "#999";
 
       L.circleMarker([lat, lon], {
         radius: 4,
